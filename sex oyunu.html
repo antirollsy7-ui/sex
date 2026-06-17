@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Eğlenceli Oyun</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            background: #0a0a0f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            touch-action: none;
+        }
+        .game-container {
+            background: #14141e;
+            border-radius: 32px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            max-width: 420px;
+            width: 100%;
+            border: 1px solid #2a2a3e;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 1/1;
+            background: #1a1a2a;
+            border-radius: 20px;
+            cursor: pointer;
+            touch-action: none;
+            box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.6);
+        }
+        .ui-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .stat-box {
+            background: #1e1e32;
+            padding: 8px 14px;
+            border-radius: 40px;
+            color: #aab;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            border: 1px solid #2e2e4a;
+            flex: 1;
+            min-width: 80px;
+            text-align: center;
+        }
+        .stat-box span {
+            color: #f0f;
+            font-size: 16px;
+        }
+        .btn {
+            background: #2a1a4a;
+            border: none;
+            color: #d0c0ff;
+            padding: 10px 18px;
+            border-radius: 40px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.2s;
+            border: 1px solid #4a3a6a;
+            flex: 1;
+            min-width: 70px;
+            text-align: center;
+            touch-action: manipulation;
+        }
+        .btn:active {
+            transform: scale(0.94);
+            background: #3a2a5a;
+        }
+        .btn-primary {
+            background: #6a2a7a;
+            border-color: #9a5aaa;
+            color: #fff;
+        }
+        .btn-primary:active {
+            background: #8a3a9a;
+        }
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            margin-top: 8px;
+        }
+        .slider-container label {
+            color: #889;
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 50px;
+        }
+        input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            background: #2a2a42;
+            height: 4px;
+            border-radius: 10px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #a060c0;
+            cursor: pointer;
+            border: 2px solid #d090e0;
+        }
+        .footer {
+            color: #445;
+            font-size: 10px;
+            text-align: center;
+            margin-top: 14px;
+            letter-spacing: 1px;
+            opacity: 0.5;
+        }
+        .badge {
+            display: inline-block;
+            background: #2a1a3a;
+            padding: 2px 12px;
+            border-radius: 30px;
+            font-size: 10px;
+            color: #8877aa;
+            border: 1px solid #3a2a4a;
+        }
+        @media (max-width: 450px) {
+            .game-container { padding: 12px; }
+            .stat-box { font-size: 11px; padding: 6px 10px; }
+            .btn { font-size: 12px; padding: 8px 12px; }
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+
+    <div class="ui-panel">
+        <div class="stat-box">🔥 <span id="scoreDisplay">0</span></div>
+        <div class="stat-box">💓 <span id="pleasureDisplay">0%</span></div>
+        <div class="stat-box">⏱️ <span id="timeDisplay">00:00</span></div>
+    </div>
+
+    <div class="slider-container">
+        <label>🐢 HIZ</label>
+        <input type="range" id="speedSlider" min="1" max="10" value="4">
+        <label>🐇</label>
+    </div>
+
+    <div class="ui-panel" style="margin-top: 6px;">
+        <button class="btn btn-primary" id="actionBtn">▶ BAŞLAT</button>
+        <button class="btn" id="resetBtn">⟳ SIFIRLA</button>
+    </div>
+    <div class="footer">
+        <span class="badge">🔞 Yetişkinler İçin</span>  —  <span class="badge">🎮 Etkileşimli</span>
+    </div>
+</div>
+<script>
+    (function(){
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const W = 600, H = 600;
+
+        // DOM elemanları
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const pleasureDisplay = document.getElementById('pleasureDisplay');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const speedSlider = document.getElementById('speedSlider');
+        const actionBtn = document.getElementById('actionBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // ---- OYUN DURUMU ----
+        let gameState = 'idle'; // idle | active | orgasm
+        let score = 0;
+        let pleasure = 0;       // 0-100
+        let timeElapsed = 0;    // saniye
+        let frameId = null;
+        let lastTimestamp = 0;
+
+        // ---- FİZİK PARAMETRELERİ ----
+        let speedFactor = 4;    // 1-10 arası
+        let thrust = 0;         // 0-1 arası anlık itme
+
+        // ---- KARAKTER POZİSYONLARI ----
+        // Kadın (alıcı) - sabit
+        const woman = { x: 300, y: 350, w: 80, h: 120 };
+        // Erkek (aktif) - hareketli
+        const man = { x: 300, y: 450, w: 70, h: 100 };
+
+        // ---- YARDIMCI FONKSİYONLAR ----
+        function clamp(v, min, max) { return Math.min(max, Math.max(min, v)); }
+
+        function formatTime(sec) {
+            const m = Math.floor(sec / 60);
+            const s = Math.floor(sec % 60);
+            return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+        }
+
+        // ---- ÇİZİM FONKSİYONU ----
+        function draw() {
+            ctx.clearRect(0, 0, W, H);
+
+            // ---- Arkaplan ----
+            const grad = ctx.createRadialGradient(300, 300, 50, 300, 300, 400);
+            grad.addColorStop(0, '#1a1a30');
+            grad.addColorStop(1, '#0a0a16');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, H);
+
+            // ---- Kadın (alıcı) ----
+            const wx = woman.x - woman.w/2;
+            const wy = woman.y - woman.h/2;
+            // gövde
+            ctx.shadowColor = '#f0a0f0';
+            ctx.shadowBlur = 20;
+            ctx.fillStyle = '#f0b0e0';
+            ctx.beginPath();
+            ctx.roundRect(wx, wy, woman.w, woman.h, 18);
+            ctx.fill();
+            // baş
+            ctx.fillStyle = '#f5c8e8';
+            ctx.beginPath();
+            ctx.arc(woman.x, woman.y - woman.h/2 - 25, 32, 0, Math.PI*2);
+            ctx.fill();
+            // gözler
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#222';
+            ctx.beginPath();
+            ctx.arc(woman.x-12, woman.y - woman.h/2 - 30, 5, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(woman.x+12, woman.y - woman.h/2 - 30, 5, 0, Math.PI*2);
+            ctx.fill();
+            // ağız (zevk seviyesine göre)
+            ctx.strokeStyle = '#b04070';
+            ctx.lineWidth = 3;
+            const mouthY = woman.y - woman.h/2 - 8;
+            const mouthOpen = 6 + pleasure/12;
+            ctx.beginPath();
+            ctx.arc(woman.x, mouthY, 12 + pleasure/15, 0, Math.PI * (pleasure > 80 ? 1.2 : 0.8));
+            ctx.stroke();
+
+            // ---- Erkek (aktif) ----
+            const mx = man.x - man.w/2;
+            const my = man.y - man.h/2;
+            ctx.shadowColor = '#c080f0';
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#b080c0';
+            ctx.beginPath();
+            ctx.roundRect(mx, my, man.w, man.h, 14);
+            ctx.fill();
+            // baş
+            ctx.fillStyle = '#c8a0d0';
+            ctx.beginPath();
+            ctx.arc(man.x, man.y - man.h/2 - 20, 28, 0, Math.PI*2);
+            ctx.fill();
+
+            // ---- PENİS (sembolik) ----
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = '#d06080';
+            const penetration = clamp( (man.y - woman.y + 40) / 60, 0, 1 );
+            const pLen = 20 + penetration * 30;
+            const pX = man.x - 6;
+            const pY = man.y - man.h/2 + 5;
+            ctx.beginPath();
+            ctx.roundRect(pX, pY, 12, pLen, 6);
+            ctx.fill();
+            // uç
+            ctx.fillStyle = '#e07090';
+            ctx.beginPath();
+            ctx.arc(man.x, pY - 4, 10, 0, Math.PI*2);
+            ctx.fill();
+
+            // ---- TEMAS GÖSTERGESİ (penetrasyon) ----
+            if (gameState === 'active' || gameState === 'orgasm') {
+                const overlap = clamp( (woman.y - woman.h/2 - pY) / 40, 0, 1 );
+                ctx.shadowBlur = 30;
+                ctx.shadowColor = overlap > 0.3 ? '#ff40a0' : '#a060c0';
+                ctx.fillStyle = overlap > 0.3 ? 'rgba(255,80,160,0.2)' : 'rgba(160,96,192,0.1)';
+                ctx.beginPath();
+                ctx.arc(woman.x, woman.y + 20, 40 + overlap*30, 0, Math.PI*2);
+                ctx.fill();
+            }
+
+            // ---- ZEVK BAR GÖSTERGESİ (çember) ----
+            ctx.shadowBlur = 0;
+            const barR = 40;
+            const barX = 530, barY = 60;
+            ctx.strokeStyle = '#2a2a4a';
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.arc(barX, barY, barR, 0, Math.PI*2);
+            ctx.stroke();
+            // dolu kısım
+            const angle = (pleasure / 100) * Math.PI * 2 - Math.PI/2;
+            ctx.strokeStyle = pleasure > 70 ? '#ff40a0' : '#b070d0';
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.arc(barX, barY, barR, -Math.PI/2, angle);
+            ctx.stroke();
+            ctx.fillStyle = '#c0a0d0';
+            ctx.font = 'bold 16px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(Math.round(pleasure)+'%', barX, barY+6);
+
+            // ---- STROKE (örnek) ----
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#8877aa';
+            ctx.font = '12px monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText('💦 '+score, 20, 50);
+
+            // ---- ORGANİK TİTREŞİM (orgasm anı) ----
+            if (gameState === 'orgasm') {
+                const intensity = Math.sin(Date.now() / 50) * 3 + 3;
+                ctx.fillStyle = `rgba(255,200,255,${0.1 + Math.sin(Date.now()/30)*0.05})`;
+                ctx.fillRect(0, 0, W, H);
+                // yazı
+                ctx.fillStyle = '#ff80c0';
+                ctx.font = 'bold 34px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.shadowColor = '#ff40a0';
+                ctx.shadowBlur = 50;
+                ctx.fillText('✦ ORGASM ✦', 300, 200);
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        // ---- FİZİK GÜNCELLEME ----
+        function updatePhysics(delta) {
+            if (gameState === 'idle') return;
+
+            const speed = speedFactor * 0.15;
+            const baseY = 450;
+
+            // Erkek y ekseninde hareket (yukarı/aşağı)
+            if (gameState === 'active') {
+                thrust = Math.sin(Date.now() / 150) * 0.6 + 0.5;
+                const offset = (thrust - 0.5) * speed * 4;
+                man.y = baseY + offset * 1.5;
+
+                // Penetrasyon kontrolü
+                const penetration = clamp( (woman.y - woman.h/2 - (man.y - man.h/2 + 30)) / 40, 0, 1 );
+                if (penetration > 0.3) {
+                    score += Math.floor(penetration * 2 + 1);
+                    pleasure = Math.min(100, pleasure + penetration * 1.2);
+                    if (pleasure >= 100) {
+                        gameState = 'orgasm';
+                        pleasure = 100;
+                        actionBtn.textContent = '💖 ORGASM';
+                    }
+                }
+                if (penetration < 0.1) {
+                    pleasure = Math.max(0, pleasure - 0.3);
+                }
+            }
+
+            // orgasm sırasında pleasure düşüşü
+            if (gameState === 'orgasm') {
+                pleasure = Math.max(0, pleasure - 0.8);
+                if (pleasure <= 0) {
+                    gameState = 'idle';
+                    actionBtn.textContent = '▶ BAŞLAT';
+                    pleasure = 0;
+                }
+            }
+
+            // Zaman sayacı
+            if (gameState === 'active' || gameState === 'orgasm') {
+                timeElapsed += delta;
+            }
+
+            // Ekran güncellemeleri
+            scoreDisplay.textContent = score;
+            pleasureDisplay.textContent = Math.round(pleasure) + '%';
+            timeDisplay.textContent = formatTime(timeElapsed);
+        }
+
+        // ---- ANA DÖNGÜ ----
+        function gameLoop(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            const delta = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+
+            if (gameState !== 'idle') {
+                updatePhysics(delta);
+            }
+            draw();
+
+            // Otomatik orgasm sonrası sıfırlama
+            if (gameState === 'orgasm' && pleasure <= 0) {
+                gameState = 'idle';
+                actionBtn.textContent = '▶ BAŞLAT';
+            }
+
+            frameId = requestAnimationFrame(gameLoop);
+        }
+
+        // ---- KULLANICI AKSİYONLARI ----
+        function startAction() {
+            if (gameState === 'idle') {
+                gameState = 'active';
+                actionBtn.textContent = '⏸ DURDUR';
+                if (!frameId) {
+                    lastTimestamp = 0;
+                    frameId = requestAnimationFrame(gameLoop);
+                }
+            } else if (gameState === 'active') {
+                gameState = 'idle';
+                actionBtn.textContent = '▶ DEVAM';
+            } else if (gameState === 'orgasm') {
+                // orgasm anında buton pasif
+            }
+        }
+
+        function resetGame() {
+            gameState = 'idle';
+            score = 0;
+            pleasure = 0;
+            timeElapsed = 0;
+            man.y = 450;
+            actionBtn.textContent = '▶ BAŞLAT';
+            scoreDisplay.textContent = '0';
+            pleasureDisplay.textContent = '0%';
+            timeDisplay.textContent = '00:00';
+            if (frameId) {
+                cancelAnimationFrame(frameId);
+                frameId = null;
+                lastTimestamp = 0;
+                // yeniden başlat
+                frameId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // ---- MOUSE / TOUCH KONTROL ----
+        function handleCanvasClick(e) {
+            e.preventDefault();
+            if (gameState === 'idle' || gameState === 'active') {
+                startAction();
+            }
+        }
+
+        // ---- ROUND RECT POLYFILL (canvas) ----
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, radii) {
+                const r = typeof radii === 'number' ? radii : (radii || 0);
+                this.moveTo(x + r, y);
+                this.arcTo(x + w, y, x + w, y + h, r);
+                this.arcTo(x + w, y + h, x, y + h, r);
+                this.arcTo(x, y + h, x, y, r);
+                this.arcTo(x, y, x + w, y, r);
+                return this;
+            };
+        }
+
+        // ---- OLAY BAĞLAMA ----
+        canvas.addEventListener('click', handleCanvasClick);
+        canvas.addEventListener('touchstart', function(e){ e.preventDefault(); handleCanvasClick(e); }, { passive: false });
+
+        actionBtn.addEventListener('click', function(e){
+            e.stopPropagation();
+            startAction();
+        });
+
+        resetBtn.addEventListener('click', function(e){
+            e.stopPropagation();
+            resetGame();
+        });
+
+        speedSlider.addEventListener('input', function(){
+            speedFactor = parseFloat(this.value);
+        });
+
+        // ---- BAŞLAT ----
+        resetGame();
+        // açılış döngüsü
+        if (!frameId) {
+            frameId = requestAnimationFrame(gameLoop);
+        }
+
+        // ---- KLAVYE KONTROLLERİ ----
+        document.addEventListener('keydown', function(e){
+            if (e.code === 'Space') {
+                e.preventDefault();
+                startAction();
+            }
+            if (e.code === 'KeyR') {
+                resetGame();
+            }
+        });
+
+        console.log('✅ Oyun yüklendi. Boşluk tuşu ile başlat/durdur, R ile sıfırla.');
+    })();
+</script>
+</body>
+</html>
